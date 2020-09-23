@@ -1,0 +1,13 @@
+<?php
+/**
+ * Implements hook_theme().
+ */
+function calendar_theme($existing, $type, $theme, $path) {
+  return [
+    'calendar_theme' => [
+      'variables' => [
+        'addyear' => 'addyear'
+      ]
+    ]
+  ];
+}

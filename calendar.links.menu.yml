@@ -1,0 +1,5 @@
+calendar.link.page:
+  title: 'Calendar'
+  route_name: calendar.page
+  weight: 10
+  menu_name: main

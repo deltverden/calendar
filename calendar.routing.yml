@@ -1,0 +1,7 @@
+calendar.page:
+  path: '/calendar'
+  defaults:
+    _title: 'Calendar'
+    _controller: 'Drupal\calendar\Controller\Calendar::get'
+  requirements:
+    _access: 'TRUE'

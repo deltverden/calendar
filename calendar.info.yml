@@ -1,0 +1,5 @@
+name: Calendar
+description: 'Calendar with Form API'
+core: 8.x
+type: module
+package: Custom

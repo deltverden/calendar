@@ -1,0 +1,7 @@
+.calendar-layout {
+  width: 100%;
+}
+
+.calendar-layout td div {
+  width: 40px;
+}
