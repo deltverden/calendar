@@ -3,6 +3,7 @@
 namespace Drupal\calendar\Form;
 
 use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\FormBuilder;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Ajax\AjaxResponse;
 use Drupal\Core\Ajax\ReplaceCommand;
@@ -32,7 +33,7 @@ class CalendarForm extends FormBase {
 
   public $addTables = 1;
   public $addRows = 1;
-  public $currentButton = 1;
+  public $year = 0;
 
   public function getFormId() {
     return 'calendar-form';
@@ -41,26 +42,20 @@ class CalendarForm extends FormBase {
   public function buildForm(array $form, FormStateInterface $form_state) {
     $form['#id'] = 'calendar-layout-form';
 
+    $currentYear = date('Y');
+
+    $this->year = $currentYear;
+
     $tables = $this->addTables;
 
-    $this->calendarAddTable($form, $form_state, $tables);
-
-    for ($t = 1; $t <= $tables; $t++) {
-      if ($form_state->getTriggeringElement()['#name'] == "add_row_{$t}") {
-        $rows = $this->addRows;
-        $rows++;
-        $this->addRows = $rows;
-
-        $this->calendarAddRow($form, $form_state, $t, $rows);
-      }
-    }
+    $this->calendarAddTable($form, $form_state, $tables, $this->year);
 
     if ($form_state->getTriggeringElement()['#name'] == "add_table") {
       $tables = $this->addTables;
       $tables++;
       $this->addTables = $tables;
 
-      $this->calendarAddTable($form, $form_state, $tables);
+      $this->calendarAddTable($form, $form_state, $tables, $this->year);
     }
 
     $form['actions']['addTable'] = [
@@ -77,7 +72,7 @@ class CalendarForm extends FormBase {
     return $form;
   }
 
-  public function calendarAddTable(array &$form, FormStateInterface $form_state, $tables = 1) {
+  public function calendarAddTable(array &$form, FormStateInterface $form_state, $tables = 1, $currentYear = 0) {
     for ($t = 1; $t <= $tables; $t++) {
       $form["calendar-{$t}"] = [
         '#type' => 'table',
@@ -88,7 +83,17 @@ class CalendarForm extends FormBase {
 
       $rows = $this->addRows;
 
-      $this->calendarAddRow($form, $form_state, $t, $rows);
+      $this->calendarAddRow($form, $form_state, $t, $rows, $currentYear);
+
+      if ($form_state->getTriggeringElement()['#name'] == "add_row_{$t}") {
+        $rows = $this->addRows;
+        $rows++;
+        $this->addRows = $rows;
+
+        $form_state->set("currentCalendar", $t);
+
+        $this->calendarAddRow($form, $form_state, $t, $rows, $currentYear);
+      }
 
       $form["actionAddRow{$t}"]["addRow{$t}"] = [
         '#type' => 'button',
@@ -103,15 +108,22 @@ class CalendarForm extends FormBase {
     }
   }
 
-  public function calendarAddRow(array &$form, FormStateInterface $form_state, $currentTable = 1, $rows = 1) {
-    $this->currentButton = $currentTable;
-
+  public function calendarAddRow(array &$form, FormStateInterface $form_state, $currentTable = 1, $rows = 1, $currentYear = 0) {
     for ($r = 1; $r <= $this->addRows; $r++) {
       for ($f = 0; $f <= count($this->tableFieldTitles)-1; $f++) {
         $field = strtolower($this->tableFieldTitles[$f]);
 
+        $disableInput = FALSE;
+        $disableValue = '';
+        if ($f == 0) {
+          $disableInput = TRUE;
+          $disableValue = $currentYear - ($r-1);
+        }
+
         $form["calendar-{$currentTable}"][$r]["$field"] = [
           '#type' => 'textfield',
+          '#disabled' => $disableInput,
+          '#value' => $disableValue,
           '#prefix' => "<div id='calendar-{$currentTable}-row-{$r}-field-{$field}'>",
           '#suffix' => "</div>"
         ];
@@ -124,7 +136,9 @@ class CalendarForm extends FormBase {
   }
 
   public function calendarAddRowCallback(array &$form, FormStateInterface $form_state) {
-    return $form["calendar-1"];
+    $table = $form_state->get('currentCalendar');
+
+    return $form["calendar-{$table}"];
   }
 
   public function validateForm(array &$form, FormStateInterface $form_state) {
