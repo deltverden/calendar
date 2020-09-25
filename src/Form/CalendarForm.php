@@ -3,10 +3,7 @@
 namespace Drupal\calendar\Form;
 
 use Drupal\Core\Form\FormBase;
-use Drupal\Core\Form\FormBuilder;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Ajax\AjaxResponse;
-use Drupal\Core\Ajax\ReplaceCommand;
 
 class CalendarForm extends FormBase {
 
@@ -32,7 +29,7 @@ class CalendarForm extends FormBase {
   ];
 
   public $addTables = 1;
-  public $addRows = 1;
+
   public $year = 0;
 
   public function getFormId() {
@@ -48,14 +45,14 @@ class CalendarForm extends FormBase {
 
     $tables = $this->addTables;
 
-    $this->calendarAddTable($form, $form_state, $tables, $this->year);
+    $this->calendarAddTable($form, $form_state, $tables);
 
     if ($form_state->getTriggeringElement()['#name'] == "add_table") {
       $tables = $this->addTables;
       $tables++;
       $this->addTables = $tables;
 
-      $this->calendarAddTable($form, $form_state, $tables, $this->year);
+      $this->calendarAddTable($form, $form_state, $tables);
     }
 
     $form['actions']['addTable'] = [
@@ -69,30 +66,39 @@ class CalendarForm extends FormBase {
       ],
     ];
 
+//    var_dump($form); die();
+
     return $form;
   }
 
-  public function calendarAddTable(array &$form, FormStateInterface $form_state, $tables = 1, $currentYear = 0) {
+  public function calendarAddTable(array &$form, FormStateInterface $form_state, $tables = 1) {
     for ($t = 1; $t <= $tables; $t++) {
       $form["calendar-{$t}"] = [
         '#type' => 'table',
         '#header' => $this->tableFieldTitles,
         '#prefix' => "<div id ='calendar-table-{$t}'>",
-        '#suffix' => "</div>"
+        '#suffix' => "</div>",
       ];
 
-      $rows = $this->addRows;
+      $calendarRows = $form_state->get("calendar{$t}CountRows");
 
-      $this->calendarAddRow($form, $form_state, $t, $rows, $currentYear);
+      if (empty($calendarRows)) {
+        $calendarRows = 1;
+        $form_state->set("calendar{$t}CountRows", $calendarRows);
+      }
+
+      $rows = $calendarRows;
+
+      $this->calendarAddRow($form, $form_state, $t, $rows);
 
       if ($form_state->getTriggeringElement()['#name'] == "add_row_{$t}") {
-        $rows = $this->addRows;
+        $rows = $form_state->get("calendar{$t}CountRows");
         $rows++;
-        $this->addRows = $rows;
+        $form_state->set("calendar{$t}CountRows", $rows);
 
         $form_state->set("currentCalendar", $t);
 
-        $this->calendarAddRow($form, $form_state, $t, $rows, $currentYear);
+        $this->calendarAddRow($form, $form_state, $t, $rows);
       }
 
       $form["actionAddRow{$t}"]["addRow{$t}"] = [
@@ -108,24 +114,25 @@ class CalendarForm extends FormBase {
     }
   }
 
-  public function calendarAddRow(array &$form, FormStateInterface $form_state, $currentTable = 1, $rows = 1, $currentYear = 0) {
-    for ($r = 1; $r <= $this->addRows; $r++) {
-      for ($f = 0; $f <= count($this->tableFieldTitles)-1; $f++) {
-        $field = strtolower($this->tableFieldTitles[$f]);
+  public function calendarAddRow(array &$form, FormStateInterface $form_state, $currentTable = 1, $rows = 1) {
+    for ($r = 1; $r <= $rows; $r++) {
+      $yearValue = $this->year - ($r - 1);
 
-        $disableInput = FALSE;
-        $disableValue = '';
-        if ($f == 0) {
-          $disableInput = TRUE;
-          $disableValue = $currentYear - ($r-1);
-        }
+      $form["calendar-{$currentTable}"][$r]["year"] = [
+        '#type' => 'textfield',
+        '#disabled' => TRUE,
+        '#default_value' => $yearValue,
+        '#prefix' => "<div id='calendar-{$currentTable}-row-{$r}-field-year'>",
+        '#suffix' => "</div>",
+      ];
+
+      for ($f = 1; $f <= count($this->tableFieldTitles) - 1; $f++) {
+        $field = strtolower($this->tableFieldTitles[$f]);
 
         $form["calendar-{$currentTable}"][$r]["$field"] = [
           '#type' => 'textfield',
-          '#disabled' => $disableInput,
-          '#value' => $disableValue,
           '#prefix' => "<div id='calendar-{$currentTable}-row-{$r}-field-{$field}'>",
-          '#suffix' => "</div>"
+          '#suffix' => "</div>",
         ];
       }
     }
