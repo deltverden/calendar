@@ -2,6 +2,8 @@
 
 namespace Drupal\calendar\Form;
 
+use Drupal\Core\Ajax\AjaxResponse;
+use Drupal\Core\Ajax\ReplaceCommand;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 
@@ -39,6 +41,8 @@ class CalendarForm extends FormBase {
   public function buildForm(array $form, FormStateInterface $form_state) {
     $form['#id'] = 'calendar-layout-form';
 
+    $form_state->set("currentCalendar", 1);
+
     $currentYear = date('Y');
 
     $this->year = $currentYear;
@@ -66,7 +70,7 @@ class CalendarForm extends FormBase {
       ],
     ];
 
-//    var_dump($form); die();
+//    var_dump($form["calendar-1"]); die();
 
     return $form;
   }
@@ -75,6 +79,7 @@ class CalendarForm extends FormBase {
     for ($t = 1; $t <= $tables; $t++) {
       $form["calendar-{$t}"] = [
         '#type' => 'table',
+        '#caption' => "Calendar {$t}",
         '#header' => $this->tableFieldTitles,
         '#prefix' => "<div id ='calendar-table-{$t}'>",
         '#suffix' => "</div>",
@@ -118,24 +123,98 @@ class CalendarForm extends FormBase {
     for ($r = 1; $r <= $rows; $r++) {
       $yearValue = $this->year - ($r - 1);
 
-      $form["calendar-{$currentTable}"][$r]["year"] = [
+      $form["calendar-{$currentTable}"][$r]["Year"] = [
         '#type' => 'textfield',
         '#disabled' => TRUE,
         '#default_value' => $yearValue,
-        '#prefix' => "<div id='calendar-{$currentTable}-row-{$r}-field-year'>",
+        '#prefix' => "<div id='calendar-{$currentTable}-row-{$r}-field-Year'>",
         '#suffix' => "</div>",
       ];
 
-      for ($f = 1; $f <= count($this->tableFieldTitles) - 1; $f++) {
-        $field = strtolower($this->tableFieldTitles[$f]);
+      for ($f = 1; $f <= count($this->tableFieldTitles) - 2; $f++) {
+        $field = $this->tableFieldTitles[$f];
 
-        $form["calendar-{$currentTable}"][$r]["$field"] = [
+        $fieldQuarter = $form_state->get('currentQuarter');
+
+        if (empty($fieldQuarter)) {
+          $fieldQuarter = 'Q1';
+          $form_state->set('currentQuarter', $fieldQuarter);
+        }
+
+        $form["calendar-{$currentTable}"][$r][$field] = [
           '#type' => 'textfield',
           '#prefix' => "<div id='calendar-{$currentTable}-row-{$r}-field-{$field}'>",
           '#suffix' => "</div>",
+          '#calendar-table' => $currentTable,
+          '#calendar-row' => $r,
+          '#calendar-field' => $field,
+          '#calendar-quarter' => $fieldQuarter,
+          '#ajax' => [
+            'callback' => "::calendarQuarterCallback",
+            'event' => 'change',
+            'wrapper' => "calendar-{$currentTable}-row-{$r}-field-{$fieldQuarter}",
+          ],
         ];
+
+        if ($f % 4 == 0) {
+          // Offset warning (isn't critical)
+          $newField = $this->tableFieldTitles[$f+4];
+
+          $form_state->set('currentQuarter', $newField);
+        }
+      }
+
+      $form["calendar-{$currentTable}"][$r]['YTD'] = [
+        '#type' => 'textfield',
+        '#prefix' => "<div id='calendar-{$currentTable}-row-{$r}-field-YTD'>",
+        '#suffix' => "</div>",
+        '#calendar-table' => $currentTable,
+        '#calendar-row' => $r,
+        '#calendar-field' => 'YTD',
+        '#calendar-quarter' => 'YTD',
+      ];
+    }
+  }
+
+  public function calendarUpdateQuarters(array &$form, FormStateInterface $form_state, $table, $row, $quarter) {
+    for ($f = 1; $f <= count($this->tableFieldTitles) - 2; $f++) {
+      $field = $this->tableFieldTitles[$f];
+
+      $sumMonths = $form_state->get("sumForQuarter{$quarter}");
+      if (empty($sumMonths)) {
+        $sumMonths = 0;
+        $form_state->set("sumForQuarter{$quarter}", $sumMonths);
+      }
+
+      $currentQuarter = $form["calendar-{$table}"][$row][$field]['#calendar-quarter'];
+      $currentValue = $form["calendar-{$table}"][$row][$field]['#value'];
+
+      if (empty($currentValue)) {
+        $currentValue = 0;
+      }
+
+      if (($f % 4 != 0) && ($currentQuarter == $quarter)) {
+        $sumMonths += $currentValue;
+        $form_state->set("sumForQuarter{$quarter}", $sumMonths);
+      }
+
+      if (($f % 4 == 0) && ($currentQuarter != $quarter)) {
+        $sumQuarters += $currentValue;
       }
     }
+
+    if ($sumMonths != 0) {
+      $sumMonths++;
+      $sumMonths = $sumMonths / 3;
+    }
+
+    $sumQuarters += $sumMonths;
+
+    $sumQuarters++;
+    $sumQuarters = $sumQuarters / 4;
+
+    $form["calendar-{$table}"][$row][$quarter]["#value"] = $sumMonths;
+    $form["calendar-{$table}"][$row]["YTD"]["#value"] = $sumQuarters;
   }
 
   public function calendarAddTableCallback(array &$form, FormStateInterface $form_state) {
@@ -146,6 +225,21 @@ class CalendarForm extends FormBase {
     $table = $form_state->get('currentCalendar');
 
     return $form["calendar-{$table}"];
+  }
+
+  public function calendarQuarterCallback(array &$form, FormStateInterface $form_state) {
+    $table = $form_state->getTriggeringElement()['#calendar-table'];
+    $row = $form_state->getTriggeringElement()['#calendar-row'];
+    $quarter = $form_state->getTriggeringElement()['#calendar-quarter'];
+
+    $this->calendarUpdateQuarters($form, $form_state, $table, $row, $quarter);
+
+    $response = new AjaxResponse();
+
+    $response->addCommand(new ReplaceCommand("#calendar-{$table}-row-{$row}-field-{$quarter}", $form["calendar-{$table}"][$row][$quarter]));
+    $response->addCommand(new ReplaceCommand("#calendar-{$table}-row-{$row}-field-YTD", $form["calendar-{$table}"][$row]['YTD']));
+
+    return $response;
   }
 
   public function validateForm(array &$form, FormStateInterface $form_state) {
