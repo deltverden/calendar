@@ -1,5 +1,9 @@
-.content {
-  overflow: hidden;
+.calendar-form th {
+  text-align: center;
+}
+
+.calendar-form td:first-child, .calendar-form td:last-child, .calendar-form td:nth-child(5), .calendar-form td:nth-child(9), .calendar-form td:nth-child(13), .calendar-form td:nth-child(17) {
+  background: #757575;
 }
 
 .calendar-layout {
@@ -7,7 +11,7 @@
 }
 
 .calendar-layout td div {
-  width: 30px;
+  width: 50px;
 }
 
 .calendar-layout td:first-child div {
