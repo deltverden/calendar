@@ -116,10 +116,21 @@ class CalendarForm extends FormBase {
           'wrapper' => "calendar-table-{$t}",
         ],
       ];
+
+      $form["actionValidateTable{$t}"]["validateTable{$t}"] = [
+        '#type' => 'button',
+        '#value' => 'Validate',
+        '#name' => "validate_table_{$t}",
+        '#ajax' => [
+          'callback' => "::calendarValidateTableCallback",
+          'event' => 'click',
+          'wrapper' => "calendar-table-{$t}",
+        ],
+      ];
     }
   }
 
-  public function calendarAddRow(array &$form, FormStateInterface $form_state, $currentTable = 1, $rows = 1) {
+  public function calendarAddRow(array &$form, FormStateInterface $form_state, $currentTable, $rows) {
     for ($r = 1; $r <= $rows; $r++) {
       $yearValue = $this->year - ($r - 1);
 
@@ -131,7 +142,9 @@ class CalendarForm extends FormBase {
         '#suffix' => "</div>",
       ];
 
-      for ($f = 1; $f <= count($this->tableFieldTitles) - 2; $f++) {
+      $fieldTitles = count($this->tableFieldTitles) - 2;
+
+      for ($f = 1; $f <= $fieldTitles; $f++) {
         $field = $this->tableFieldTitles[$f];
 
         $fieldQuarter = $form_state->get('currentQuarter');
@@ -156,7 +169,7 @@ class CalendarForm extends FormBase {
           ],
         ];
 
-        if ($f % 4 == 0) {
+        if (($f % 4 == 0) && ($f != $fieldTitles)) {
           // Offset warning (isn't critical)
           $newField = $this->tableFieldTitles[$f+4];
 
@@ -213,8 +226,8 @@ class CalendarForm extends FormBase {
     $sumQuarters++;
     $sumQuarters = $sumQuarters / 4;
 
-    $form["calendar-{$table}"][$row][$quarter]["#value"] = $sumMonths;
-    $form["calendar-{$table}"][$row]["YTD"]["#value"] = $sumQuarters;
+    $form["calendar-{$table}"][$row][$quarter]["#value"] = round($sumMonths, 2);
+    $form["calendar-{$table}"][$row]["YTD"]["#value"] = round($sumQuarters, 2);
   }
 
   public function calendarAddTableCallback(array &$form, FormStateInterface $form_state) {
