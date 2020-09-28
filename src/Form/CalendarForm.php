@@ -239,6 +239,8 @@ class CalendarForm extends FormBase {
   public function calendarValidate(array &$form, FormStateInterface $form_state, $tables) {
     $firstValidField = 0;
     $lastValidField = 0;
+    $firstValidRow = 0;
+    $lastValidRow = 0;
 
     for ($t = 1; $t <= $tables; $t++) {
       $rows = $form_state->get("calendar{$t}CountRows");
@@ -280,11 +282,10 @@ class CalendarForm extends FormBase {
 
   public function calendarValidateCheckGap(array &$form, FormStateInterface $form_state, $table, $firstValidRow, $firstValidField, $lastValidRow, $lastValidField) {
 
-    if ($lastValidField == 0 || $lastValidRow == 0) {
+    if ($lastValidField == 0 && $lastValidRow != 0) {
       $message = 'Valid';
     } else {
       for ($r = $firstValidRow; $r <= $lastValidRow; $r++) {
-
         if ($lastValidRow != 1 && $firstValidRow != $r && $lastValidRow != $r) {
           $firstField = 1;
           $lastField = $this->tableCountMonthsTitles;
@@ -297,7 +298,7 @@ class CalendarForm extends FormBase {
 
         if ($firstValidRow == $r && $lastValidRow != $r) {
           $firstField = $firstValidField;
-          $lastField = $lastValidField;
+          $lastField = $this->tableCountMonthsTitles;
         }
 
         for ($f = $firstField; $f <= $lastField; $f++) {
