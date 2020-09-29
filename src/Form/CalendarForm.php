@@ -30,8 +30,8 @@ class CalendarForm extends FormBase {
     'YTD',
   ];
 
-  public $addTables = 1;
-  public $year = 0;
+  public $tablesCount = 1;
+  public $currentYear = 0;
   public $tableCountMonthsTitles = 0;
 
   public function getFormId() {
@@ -47,16 +47,16 @@ class CalendarForm extends FormBase {
 
     $currentYear = date('Y');
 
-    $this->year = $currentYear;
+    $this->currentYear = $currentYear;
 
-    $tables = $this->addTables;
+    $tables = $this->tablesCount;
 
     $this->calendarAddTable($form, $form_state, $tables);
 
     if ($form_state->getTriggeringElement()['#name'] == "add_table") {
-      $tables = $this->addTables;
+      $tables = $this->tablesCount;
       $tables++;
-      $this->addTables = $tables;
+      $this->tablesCount = $tables;
 
       $this->calendarAddTable($form, $form_state, $tables);
     }
@@ -134,7 +134,7 @@ class CalendarForm extends FormBase {
 
   public function calendarAddRow(array &$form, FormStateInterface $form_state, $currentTable, $rows) {
     for ($r = 1; $r <= $rows; $r++) {
-      $yearValue = $this->year - ($r - 1);
+      $yearValue = $this->currentYear - ($r - 1);
 
       $form["calendar-{$currentTable}"][$r]["Year"] = [
         '#type' => 'textfield',
@@ -167,7 +167,10 @@ class CalendarForm extends FormBase {
             'callback' => "::calendarQuarterCallback",
             'event' => 'change',
             'wrapper' => "calendar-{$currentTable}-row-{$r}-field-{$fieldQuarter}",
-            'progress' => FALSE,
+            'progress' => [
+              'type' => 'throbber',
+              'message' => NULL
+            ],
             'disable-refocus' => TRUE
           ],
         ];
@@ -237,10 +240,14 @@ class CalendarForm extends FormBase {
   }
 
   public function calendarValidate(array &$form, FormStateInterface $form_state, $tables) {
-    $firstValidField = 0;
-    $lastValidField = 0;
-    $firstValidRow = 0;
-    $lastValidRow = 0;
+    $firstTableFirstRow = 0;
+    $firstTableFirstField = 0;
+    $firstTableLastRow = 0;
+    $firstTableLastField = 0;
+    $nextTableLastRow = 0;
+    $nextTableLastField = 0;
+    $nextTableFirstRow = 0;
+    $nextTableFirstField = 0;
 
     for ($t = 1; $t <= $tables; $t++) {
       $rows = $form_state->get("calendar{$t}CountRows");
@@ -248,56 +255,90 @@ class CalendarForm extends FormBase {
       for ($r = 1; $r <= $rows; $r++) {
         for ($f = 1; $f <= $this->tableCountMonthsTitles; $f++) {
           $field = $this->tableFieldTitles[$f];
-          $fieldValue = $form["calendar-{$tables}"][$r][$field]['#value'];
+          $fieldValue = $form["calendar-{$t}"][$r][$field]['#value'];
 
           if ($f % 4 == 0) {
             continue;
           }
 
-          if ($fieldValue != 0 && $firstValidField == 0) {
-            $firstValidRow = $r;
-            $firstValidField = $f;
-          } elseif ($fieldValue != 0) {
-            $lastValidRow = $r;
-            $lastValidField = $f;
+          if ($t == 1) {
+            if ($fieldValue != 0 && $firstTableFirstField == 0) {
+              $firstTableFirstRow = $r;
+              $firstTableFirstField = $f;
+            }
+
+            if ($fieldValue != 0) {
+              $firstTableLastRow = $r;
+              $firstTableLastField = $f;
+            }
           }
 
+          if ($t != 1 && $fieldValue != 0 && $nextTableFirstField == 0) {
+            $nextTableFirstRow = $r;
+            $nextTableFirstField = $f;
+          }
+
+          if ($fieldValue != 0) {
+            $nextTableLastRow = $r;
+            $nextTableLastField = $f;
+          }
+
+          $conclusion = [
+            'firstTable' => [
+              'firstRow' => $firstTableFirstRow,
+              'firstField' => $firstTableFirstField,
+              'lastRow' => $firstTableLastRow,
+              'lastField' => $firstTableLastField,
+            ],
+            'nextTable' => [
+              'firstRow' => $nextTableFirstRow,
+              'firstField' => $nextTableFirstField,
+              'lastRow' => $nextTableLastRow,
+              'lastField' => $nextTableLastField,
+            ],
+          ];
+
           if ($f == $this->tableCountMonthsTitles-1) {
-            $message = $this->calendarValidateCheckGap($form, $form_state, $t, $firstValidRow, $firstValidField, $lastValidRow, $lastValidField);
+            $conclusion['message'] = $this->calendarValidateCheckGap(
+              $form,
+              $form_state,
+              $t,
+              $nextTableFirstRow,
+              $nextTableFirstField,
+              $nextTableLastRow,
+              $nextTableLastField
+            );
+
+            if (($firstTableFirstRow != $nextTableFirstRow) || ($firstTableFirstField != $nextTableFirstField) || ($firstTableLastRow != $nextTableLastRow) || ($firstTableLastField != $nextTableLastField)) {
+              $conclusion['message'] = 'Invalid';
+              return $conclusion;
+            }
           }
         }
       }
     }
 
-    $validMessages = [
-      'firstValidField' => $firstValidField,
-      'lastValidField' => $lastValidField,
-      'conclusion' => $message,
-      'firstValidRow' => $firstValidRow,
-      'lastValidRow' => $lastValidRow
-    ];
-
-    return $validMessages;
+    return $conclusion;
   }
 
   public function calendarValidateCheckGap(array &$form, FormStateInterface $form_state, $table, $firstValidRow, $firstValidField, $lastValidRow, $lastValidField) {
+    $breakcycle = FALSE;
 
-    if ($lastValidField == 0 && $lastValidRow != 0) {
-      $message = 'Valid';
+    if ($lastValidField == 0 && $firstValidField != 0) {
+      $conclusion = 'Valid';
     } else {
       for ($r = $firstValidRow; $r <= $lastValidRow; $r++) {
-        if ($lastValidRow != 1 && $firstValidRow != $r && $lastValidRow != $r) {
-          $firstField = 1;
+        if ($firstValidRow == $r && $lastValidRow == $r) {
+          $firstField = $firstValidField;
+          $lastField = $lastValidField;
+        } elseif ($firstValidRow == $r && $lastValidRow != $r) {
+          $firstField = $firstValidField;
           $lastField = $this->tableCountMonthsTitles;
-        }
-
-        if ($firstValidRow != $r && $lastValidRow == $r) {
+        } elseif ($firstValidRow != $r && $lastValidRow == $r) {
           $firstField = 1;
           $lastField = $lastValidField;
-        }
-
-        if ($firstValidRow == $r && $lastValidRow != $r) {
-          $firstField = $firstValidField;
+        } else {
+          $firstField = 1;
           $lastField = $this->tableCountMonthsTitles;
         }
 
@@ -306,16 +347,21 @@ class CalendarForm extends FormBase {
           $fieldValue = $form["calendar-{$table}"][$r][$field]['#value'];
 
           if ($fieldValue != 0) {
-            $message = 'Valid';
+            $conclusion = 'Valid';
           } elseif ($fieldValue == 0) {
-            $message = 'Invalid';
+            $conclusion = 'Invalid';
+            $breakcycle = TRUE;
             break;
           }
+        }
+
+        if ($breakcycle == TRUE) {
+          break;
         }
       }
     }
 
-    return $message;
+    return $conclusion;
   }
 
   public function calendarAddTableCallback(array &$form, FormStateInterface $form_state) {
@@ -345,13 +391,23 @@ class CalendarForm extends FormBase {
   }
 
   public function calendarValidateFormCallback(array &$form, FormStateInterface $form_state) {
-    $tables = $form_state->get('currentCalendar');
+    $tables = $this->tablesCount;
 
     $response = new AjaxResponse();
 
     $message = $this->calendarValidate($form, $form_state, $tables);
 
-    $response->addCommand(new ReplaceCommand("#calendar-messages", "First valid row: {$message['firstValidRow']}<br>First valid field: {$message['firstValidField']}<br>Last valid row: {$message['lastValidRow']}<br>Last valid field: {$message['lastValidField']}<br>Conclusion: {$message['conclusion']}"));
+    $response->addCommand(new ReplaceCommand("#calendar-messages", "
+        [FirstTable] first valid row: {$message['firstTable']['firstRow']}<br>
+        [FirstTable] first valid field: {$message['firstTable']['firstField']}<br>
+        [FirstTable] last valid row: {$message['firstTable']['lastRow']}<br>
+        [FirstTable] last valid field: {$message['firstTable']['lastField']}<br>
+        [NextTable] first valid row: {$message['nextTable']['firstRow']}<br>
+        [NextTable] first valid field: {$message['nextTable']['firstField']}<br>
+        [NextTable] last valid row: {$message['nextTable']['lastRow']}<br>
+        [NextTable] last valid field: {$message['nextTable']['lastField']}<br>
+        Conclusion: {$message['message']}
+    "));
 
     return $response;
   }
