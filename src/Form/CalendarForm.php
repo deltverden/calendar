@@ -187,18 +187,29 @@ class CalendarForm extends FormBase {
       }
 
       $form["calendar-{$currentTable}"][$r]['YTD'] = [
-        '#type' => 'textfield',
+        '#type' => 'number',
         '#prefix' => "<div id='calendar-{$currentTable}-row-{$r}-field-YTD'>",
         '#suffix' => "</div>",
         '#calendar-table' => $currentTable,
         '#calendar-row' => $r,
         '#calendar-field' => 'YTD',
         '#calendar-quarter' => 'YTD',
+        '#step' => '0.01',
+        '#ajax' => [
+          'callback' => "::calendarQuarterCallback",
+          'event' => 'change',
+          'progress' => [
+            'type' => 'throbber',
+            'message' => NULL
+          ],
+        ]
       ];
     }
   }
 
   public function calendarUpdateQuarters(array &$form, FormStateInterface $form_state, $table, $row, $currentField, $quarter) {
+    $currentFieldName = 0;
+
     for ($f = 1; $f <= $this->tableCountMonthsTitles; $f++) {
       $field = $this->tableFieldTitles[$f];
 
@@ -220,6 +231,8 @@ class CalendarForm extends FormBase {
         $form_state->set("sumForQuarter{$quarter}", $sumMonths);
       }
 
+      $currentFieldName = $form["calendar-{$table}"][$row][$currentField]['#value'];
+
       if (($f % 4 == 0) && ($currentQuarterField != $quarter)) {
         $sumQuarters += $currentValue;
       }
@@ -228,12 +241,20 @@ class CalendarForm extends FormBase {
     if ($sumMonths != 0) {
       $sumMonths++;
       $sumMonths = $sumMonths / 3;
+
+      if ($currentFieldName != 0) {
+        $newSumMonths = $currentFieldName - $sumMonths;
+
+        if ($newSumMonths <= 0.05 && $newSumMonths >= -0.06) {
+          $sumMonths = $currentFieldName;
+        }
+      }
+
+      $sumQuarters += $sumMonths;
+
+      $sumQuarters++;
+      $sumQuarters = $sumQuarters / 4;
     }
-
-    $sumQuarters += $sumMonths;
-
-    $sumQuarters++;
-    $sumQuarters = $sumQuarters / 4;
 
     $form["calendar-{$table}"][$row][$quarter]["#value"] = round($sumMonths, 2);
     $form["calendar-{$table}"][$row]["YTD"]["#value"] = round($sumQuarters, 2);
