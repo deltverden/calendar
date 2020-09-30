@@ -266,9 +266,7 @@ class CalendarForm extends FormBase {
             if ($fieldValue != 0 && $firstTableFirstField == 0) {
               $firstTableFirstRow = $r;
               $firstTableFirstField = $f;
-            }
-
-            if ($fieldValue != 0) {
+            } elseif ($fieldValue != 0) {
               $firstTableLastRow = $r;
               $firstTableLastField = $f;
             }
@@ -277,9 +275,7 @@ class CalendarForm extends FormBase {
           if ($fieldValue != 0 && $nextTableFirstField == 0) {
             $nextTableFirstRow = $r;
             $nextTableFirstField = $f;
-          }
-
-          if ($fieldValue != 0) {
+          } elseif ($fieldValue != 0) {
             $nextTableLastRow = $r;
             $nextTableLastField = $f;
           }
@@ -299,24 +295,24 @@ class CalendarForm extends FormBase {
             ],
           ];
 
-          if ($f == $this->tableCountMonthsTitles-1) {
-            if (($firstTableFirstRow != $nextTableFirstRow) &&
-              ($firstTableFirstField != $nextTableFirstField) &&
-              ($firstTableLastRow != $nextTableLastRow) &&
+          if ($f == $this->tableCountMonthsTitles-1 && $r == $rows) {
+            if (($firstTableFirstRow != $nextTableFirstRow) ||
+              ($firstTableFirstField != $nextTableFirstField) ||
+              ($firstTableLastRow != $nextTableLastRow) ||
               ($firstTableLastField != $nextTableLastField)) {
               $conclusion['message'] = 'Invalid (error)';
-              break;
+              return $conclusion;
+            } else {
+              $conclusion['message'] = $this->calendarValidateCheckGap(
+                $form,
+                $form_state,
+                $t,
+                $nextTableFirstRow,
+                $nextTableFirstField,
+                $nextTableLastRow,
+                $nextTableLastField
+              );
             }
-
-            $conclusion['message'] = $this->calendarValidateCheckGap(
-              $form,
-              $form_state,
-              $t,
-              $nextTableFirstRow,
-              $nextTableFirstField,
-              $nextTableLastRow,
-              $nextTableLastField
-            );
 
 //            if ($conclusion['message'] == 'Invalid' && $r == $rows) {
 //              $conclusion['message'] = 'Invalid (error)';
