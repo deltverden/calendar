@@ -17,3 +17,10 @@
 .calendar-layout td:first-child div {
   width: 40px;
 }
+
+#calendar-error {
+  font-size: 24px;
+  color: #510400;
+  text-align: center;
+  background: rgba(180, 4, 0, 0.3);
+}
