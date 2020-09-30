@@ -244,13 +244,14 @@ class CalendarForm extends FormBase {
     $firstTableFirstField = 0;
     $firstTableLastRow = 0;
     $firstTableLastField = 0;
-    $nextTableLastRow = 0;
-    $nextTableLastField = 0;
-    $nextTableFirstRow = 0;
-    $nextTableFirstField = 0;
 
     for ($t = 1; $t <= $tables; $t++) {
       $rows = $form_state->get("calendar{$t}CountRows");
+
+      $nextTableFirstRow = 0;
+      $nextTableFirstField = 0;
+      $nextTableLastRow = 0;
+      $nextTableLastField = 0;
 
       for ($r = 1; $r <= $rows; $r++) {
         for ($f = 1; $f <= $this->tableCountMonthsTitles; $f++) {
@@ -273,7 +274,7 @@ class CalendarForm extends FormBase {
             }
           }
 
-          if ($t != 1 && $fieldValue != 0 && $nextTableFirstField == 0) {
+          if ($fieldValue != 0 && $nextTableFirstField == 0) {
             $nextTableFirstRow = $r;
             $nextTableFirstField = $f;
           }
@@ -299,6 +300,14 @@ class CalendarForm extends FormBase {
           ];
 
           if ($f == $this->tableCountMonthsTitles-1) {
+            if (($firstTableFirstRow != $nextTableFirstRow) &&
+              ($firstTableFirstField != $nextTableFirstField) &&
+              ($firstTableLastRow != $nextTableLastRow) &&
+              ($firstTableLastField != $nextTableLastField)) {
+              $conclusion['message'] = 'Invalid (error)';
+              break;
+            }
+
             $conclusion['message'] = $this->calendarValidateCheckGap(
               $form,
               $form_state,
@@ -309,10 +318,10 @@ class CalendarForm extends FormBase {
               $nextTableLastField
             );
 
-            if (($firstTableFirstRow != $nextTableFirstRow) || ($firstTableFirstField != $nextTableFirstField) || ($firstTableLastRow != $nextTableLastRow) || ($firstTableLastField != $nextTableLastField)) {
-              $conclusion['message'] = 'Invalid';
-              return $conclusion;
-            }
+//            if ($conclusion['message'] == 'Invalid' && $r == $rows) {
+//              $conclusion['message'] = 'Invalid (error)';
+//              return $conclusion;
+//            }
           }
         }
       }
@@ -417,6 +426,8 @@ class CalendarForm extends FormBase {
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state) {
+
+
     return $form;
   }
 
