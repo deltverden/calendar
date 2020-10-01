@@ -292,9 +292,10 @@ class CalendarForm extends FormBase {
 
       // Check for change the quarter to 0.05
       if ($currentFieldValue != 0) {
-        $newSumMonths = $currentFieldValue - $sumMonths;
+        $minSumMonths = $sumMonths - 0.05;
+        $maxSumMonths = $sumMonths + 0.05;
 
-        if ($newSumMonths <= 0.05 && $newSumMonths >= -0.05) {
+        if ($currentFieldValue >= $minSumMonths && $currentFieldValue <= $maxSumMonths) {
           $sumMonths = $currentFieldValue;
         }
       }
